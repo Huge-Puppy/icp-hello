@@ -1,37 +1,68 @@
-body {
-    font-family: sans-serif;
-    font-size: 1.5rem;
+html, body {
+    height: 100%;
+    margin: 0;
 }
 
-img {
-    max-width: 50vw;
-    max-height: 25vw;
-    display: block;
-    margin: auto;
-}
-
-form {
+#body {
     display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    gap: 0.5em;
-    flex-flow: row wrap;
-    max-width: 40vw;
-    margin: auto;
-    align-items: baseline;
+    height: 90%;
+    width: 100%;
+    flex-basis: 100%;
 }
 
-button[type="submit"] {
-    padding: 5px 20px;
-    margin: 10px auto;
-    float: right;
+#app {
+    background-color: #2f4f4f;
+    height: 100%;
 }
 
-#greeting {
-    margin: 10px auto;
-    padding: 10px 60px;
-    border: 1px solid #222;
+#header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-content: space-between;
+    height: 10%;
+    padding-left: 30px;
+    padding-right: 30px;
 }
 
-#greeting:empty {
-    display: none;
+.rightHeader {
+    flex-direction: row;
+    flex: 1;
+    display: flex;
+    gap: 20px;
+    align-items: center;
 }
+
+.dropDown {
+    flex-direction: column;
+
+}
+
+.title {
+    text-align: center;
+    font-size: 50px;
+    color: white;
+}
+
+.myButton {
+    background-color: transparent;
+    color: white;
+    border: 2px solid;
+    border-radius: 10px;
+    border-color: white;
+    font-size: 20px;
+}
+
+.specialButton {
+    background-color: transparent;
+    color: #81dbdb;
+    border: 2px solid;
+    border-radius: 10px;
+    border-color: #81dbdb;
+    font-size: 20px;
+}
+
