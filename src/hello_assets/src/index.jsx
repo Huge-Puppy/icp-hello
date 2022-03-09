@@ -1,14 +1,19 @@
 import * as React from "react";
 import { render } from "react-dom";
-import PlugConnect from "@psychedelic/plug-connect";
+
+import Home from "./pages/home";
+import ViewNfts from "./pages/view_nfts";
+import Game from "./pages/game";
+
 import "../assets/main.css";
 
-// import { hello } from "../../declarations/hello";
+import { hello } from "../../declarations/hello";
 
 const MyHello = () => {
   const [loggedIn, setLoggedIn] = React.useState(false);
   const [principal, setPrincipal] = React.useState("");
   const [expandHeader, setExpandHeader] = React.useState(false);
+  const [route, setRoute] = React.useState("home");
 
   const whitelist = ["rv7xl-jaaaa-aaaao-aaa2q-cai"];
   const host = "https://mainnet.dfinity.network";
@@ -16,13 +21,22 @@ const MyHello = () => {
   const verifyConnectionAndAgent = async () => {
     const connected = await window.ic.plug.isConnected();
     setLoggedIn(connected);
-    if (!connected) window.ic.plug.requestConnect({ whitelist, host });
     if (connected && !window.ic.plug.agent) {
       window.ic.plug.createAgent({ whitelist, host });
     }
     if (connected) {
       setPrincipal((await window.ic.plug.getPrincipal()).toText());
     }
+  };
+
+  const mint = async () => {
+    hello.mint();
+  };
+
+  const logout = () => {
+    console.log(loggedIn);
+    window.ic.plug.disconnect();
+    setLoggedIn(false);
   };
 
   React.useEffect(async () => {
@@ -33,17 +47,28 @@ const MyHello = () => {
     <>
       <div id="header">
         <div style={{ flex: 1 }}>
-          <button className="myButton">home</button>
+          <button className="myButton" onClick={() => setRoute("home")}>
+            home
+          </button>
         </div>
         <div>
           <div className="rightHeader">
-            <button className="myButton">view NFTs</button>
+            <button className="myButton" onClick={() => setRoute("allnfts")}>
+              view NFTs
+            </button>
             {loggedIn ? (
               <div className="rightHeader">
                 {expandHeader ? (
                   <>
-                    <button className="myButton">my NFTs</button>
-                    <button className="myButton">logout</button>
+                    <button
+                      className="myButton"
+                      onClick={() => setRoute("allnfts")}
+                    >
+                      my NFTs
+                    </button>
+                    <button className="myButton" onClick={() => logout()}>
+                      logout
+                    </button>
                   </>
                 ) : (
                   <></>
@@ -73,25 +98,23 @@ const MyHello = () => {
 
         */}
       </div>
-      <div id="body">
-        <h2 className="title">Welcome</h2>
-        {loggedIn ? (
-          <button className="myButton specialButton">
-            Mint NFT - 100 tokens
-          </button>
-        ) : (
-          <PlugConnect
-            whitelist={whitelist}
-            on
-            onConnectCallback={() => {
-              setLoggedIn(true);
-              window.ic.plug.agent.getPrincipal().then((val) => {
-                setPrincipal(val.toText());
-              });
-            }}
-          />
-        )}
-      </div>
+      {route == "home" ? (
+        <Home
+          setPrincipal={setPrincipal}
+          setRoute={setRoute}
+          loggedIn={loggedIn}
+          setLoggedIn={setLoggedIn}
+          whitelist={whitelist}
+        />
+      ) : route == "allnfts" ? (
+        <ViewNfts metadata={[]} />
+      ) : route == "mynfts" ? (
+        <ViewNfts metadata={[]} />
+      ) : route == "game" ? (
+        <Game />
+      ) : (
+        <></>
+      )}
     </>
   );
 };

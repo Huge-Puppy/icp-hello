@@ -37,11 +37,6 @@ html, body {
     align-items: center;
 }
 
-.dropDown {
-    flex-direction: column;
-
-}
-
 .title {
     text-align: center;
     font-size: 50px;
@@ -65,4 +60,3 @@ html, body {
     border-color: #81dbdb;
     font-size: 20px;
 }
-
