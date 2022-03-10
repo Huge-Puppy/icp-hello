@@ -1,245 +1,200 @@
+import Array "mo:base/Array";
 import Error "mo:base/Error";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
+import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
-import Array "mo:base/Array";
-import Iter "mo:base/Iter";
+
 import T "hello_types";
 
 actor {
     let _name = "hello";
     let _symbol = "$";
+    let _zeroAddress = Principal.fromText("");
     private stable var tokenPk : Nat = 0;
 
     private stable var tokenURIEntries : [(T.TokenId, Text)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
-    private stable var tokenApprovalsEntries : [(T.TokenId, Principal)] = [];
-    private stable var operatorApprovalsEntries : [(Principal, [Principal])] = [];
+    private stable var tokenMetadataEntries : [(T.TokenId, T.MetadataDesc)] = [];
 
-    private let tokenURIs : HashMap.HashMap<T.TokenId, Text> = HashMap.fromIter<T.TokenId, Text>(tokenURIEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 10, Principal.equal, Principal.hash);
-    private let tokenApprovals : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(tokenApprovalsEntries.vals(), 10, Nat.equal, Hash.hash);
-    private let operatorApprovals : HashMap.HashMap<Principal, [Principal]> = HashMap.fromIter<Principal, [Principal]>(operatorApprovalsEntries.vals(), 10, Principal.equal, Principal.hash);
+    private let tokenURIs : HashMap.HashMap<T.TokenId, Text> = HashMap.fromIter<T.TokenId, Text>(tokenURIEntries.vals(), 0, Nat.equal, Hash.hash);
+    private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 0, Nat.equal, Hash.hash);
+    private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 0, Principal.equal, Principal.hash);
+    private let tokenMetadata : HashMap.HashMap<T.TokenId, T.MetadataDesc> = HashMap.fromIter<T.TokenId, T.MetadataDesc>(tokenMetadataEntries.vals(), 0, Nat.equal, Hash.hash);
 
-    public shared func balanceOf(p : Principal) : async ?Nat {
-        return balances.get(p);
+
+    func _getBalance(user: Principal) : Nat {
+        switch(balances.get(user)) {
+            case null 0;
+            case (?val) val;
+        };
     };
 
-    public shared func ownerOf(tokenId : T.TokenId) : async ?Principal {
-        return _ownerOf(tokenId);
-    };
-
-    public shared query func tokenURI(tokenId : T.TokenId) : async ?Text {
-        return _tokenURI(tokenId);
-    };
-
-    public shared query func name() : async Text {
-        return _name;
-    };
-
-    public shared query func symbol() : async Text {
-        return _symbol;
-    };
-
-    public shared func isApprovedForAll(owner : Principal, opperator : Principal) : async Bool {
-        return _isApprovedForAll(owner, opperator);
-    };
-
-    public shared(msg) func approve(to : Principal, tokenId : T.TokenId) : async () {
-        switch(_ownerOf(tokenId)) {
-            case (?owner) {
-                 assert to != owner;
-                 assert msg.caller == owner or _isApprovedForAll(owner, msg.caller);
-                 _approve(to, tokenId);
+    func _getOwner(token_id: T.TokenId) : T.OwnerResult {
+        switch(owners.get(token_id)) {
+            case(null) {
+                return #Err(#InvalidTokenId);
             };
-            case (null) {
-                throw Error.reject("No owner for token")
+            case(?principal) {
+                return #Ok(principal);
             };
-        }
+        };
     };
 
-    public shared func getApproved(tokenId : Nat) : async Principal {
-        switch(_getApproved(tokenId)) {
-            case (?v) { return v };
-            case null { throw Error.reject("None approved")}
-        }
+    // logoDip721
+    // Returns the logo of the NFT contract
+    public query func logo() : async T.LogoResult {
+        {logo_type= "text/plain"; data= "JA=="};
     };
 
-    public shared(msg) func setApprovalForAll(op : Principal, isApproved : Bool) : () {
-        assert msg.caller != op;
+    // nameDip721
+    // Return the name of the NFT contract
+    public query func name() : async Text {
+        _name;
+    };
 
-        switch (isApproved) {
-            case true {
-                switch (operatorApprovals.get(msg.caller)) {
-                    case (?opList) {
-                        var array = Array.filter<Principal>(opList,func (p) { p != op });
-                        array := Array.append<Principal>(array, [op]);
-                        operatorApprovals.put(msg.caller, array);
-                    };
-                    case null {
-                        operatorApprovals.put(msg.caller, [op]);
-                    };
-                };
+    // symbolDip721
+    // Returns the symbol of the NFT contract
+    public query func symbol() : async Text {
+        _symbol;
+    };
+
+    // totalSupplyDip721
+    // Returns the total current supply of NFT tokens. NFTs that are minted and later burned explictely or sent to the zero address should also count towards totalSupply.
+    public query func totalSupply() : async T.TokenId {
+        tokenPk + 1;
+    };
+
+    // balanceOfDip721
+    // Count of all NFTs assigned to user.
+    public query func balanceOf(user: Principal) : async Nat {
+        _getBalance(user);
+    };
+
+    // ownerOfDip721
+    // Returns the owner of the NFT associated with token_id. Returns ApiError.InvalidTokenId, if the token id is invalid.
+    public query func ownerOf(token_id: T.TokenId) : async T.OwnerResult {
+        _getOwner(token_id);
+    };
+
+    // safeTransferFromDip721
+    // Safely transfers token_id token from user from to user to. 
+    // If to is zero, then ApiError.ZeroAddress should be returned. 
+    // If the caller is neither the owner, nor an approved operator, 
+    // nor someone approved with the approveDip721 function, then ApiError.Unauthorized should be returned. 
+    // If token_id is not valid, then ApiError.InvalidTokenId is returned.
+    public shared({caller}) func safeTransferFrom(from: Principal, to: Principal, token_id: T.TokenId) : async T.TxReceipt {
+        if (to == _zeroAddress) return #Err(#ZeroAddress);
+        if (from != caller) return #Err(#Unauthorized);
+        let ownerResult : T.OwnerResult = _getOwner(token_id);
+        switch(ownerResult) {
+            case(#Err(error)) return #Err(error);
+            case(#Ok(principal)) {
+                if (principal != from) return #Err(#Unauthorized);
             };
-            case false {
-                switch (operatorApprovals.get(msg.caller)) {
-                    case (?opList) {
-                        let array = Array.filter<Principal>(opList, func(p) { p != op });
-                        operatorApprovals.put(msg.caller, array);
-                    };
-                    case null {
-                        operatorApprovals.put(msg.caller, []);
+        };
+        // transfer the token
+        owners.put(token_id, to);
+        // update the balances
+        balances.put(from, _getBalance(from) - 1);
+        balances.put(to, _getBalance(to) + 1);
+        #Ok(token_id);
+    };
+
+    // transferFromDip721
+    // Identical to safeTransferFromDip721 except that this function doesn't check whether the to is a zero address or not.
+    public shared({caller}) func transferFrom(from: Principal, to: Principal, token_id: T.TokenId) : async T.TxReceipt {
+        if (from != caller) return #Err(#Unauthorized);
+        let ownerResult : T.OwnerResult = _getOwner(token_id);
+        switch(ownerResult) {
+            case(#Err(error)) return #Err(error);
+            case(#Ok(principal)) {
+                if (principal != from) return #Err(#Unauthorized);
+            };
+        };
+        // transfer the token
+        owners.put(token_id, to);
+        // update the balances
+        balances.put(from, _getBalance(from) - 1);
+        balances.put(to, _getBalance(to) + 1);
+        #Ok(token_id);
+    };
+
+    // supportedInterfacesDip721
+    // Returns the interfaces supported by this smart contract.
+    public query func supportedInterfaces() : async [T.InterfaceId] {
+        [#Mint, #Burn];
+    };
+
+    // getMetadataDip721
+    // Returns the metadata for token_id. Returns ApiError.InvalidTokenId, if the token_id is invalid.
+    
+    public query func getMetadata(token_id: T.TokenId) : async T.MetadataResult {
+        if (token_id > tokenPk) return #Err(#InvalidTokenId);
+        switch(tokenMetadata.get(token_id)) {
+            case null return #Ok([]);
+            case(?metadataDesc) return #Ok(metadataDesc);
+        };
+    };
+
+    // getMetadataForUserDip721
+    // Returns all the metadata for the coins user owns.
+    public func getMetadataForUser(user: Principal) : async [T.ExtendedMetadataResult] {
+        var userMetadata : [T.ExtendedMetadataResult] = [];
+        label find for ((id, principal) in owners.entries()) {
+            if (principal == user) {
+                switch(tokenMetadata.get(id)) {
+                    case null continue find;
+                    case (?metadata) {
+                        userMetadata := Array.tabulate<T.ExtendedMetadataResult>(userMetadata.size()+1, 
+                        func(i : Nat) {
+                            if (i < userMetadata.size()) {
+                                return userMetadata[i];
+                            } else {
+                                return {metadata_desc = metadata; token_id = id};
+                            };
+                        });
                     };
                 };
             };
         };
-        
+        userMetadata;
     };
 
-    public shared(msg) func transferFrom(from : Principal, to : Principal, tokenId : Nat) : () {
-        assert _isApprovedOrOwner(msg.caller, tokenId);
-
-        _transfer(from, to, tokenId);
-    };
-
-    public shared(msg) func mint(uri : Text) : async Nat {
+    // mintDip721
+    // Mint an NFT for principal to. The parameter blobContent is non zero, if the NFT contract embeds the NFTs in the smart contract. 
+    // Implementations are encouraged to only allow minting by the owner of the smart contract. 
+    // Returns ApiError.Unauthorized, if the caller doesn't have the permission to mint the NFT.
+    public shared({caller}) func mint(to: Principal, metadata : T.MetadataDesc, blobContent: Blob) : async T.MintReceipt {
+        tokenURIs.put(tokenPk, "");
+        owners.put(tokenPk, to);
+        tokenMetadata.put(tokenPk, metadata);
+        balances.put(to, _getBalance(to)+1);
         tokenPk += 1;
-        _mint(msg.caller, tokenPk, uri);
-        return tokenPk;
+        #Ok({
+            token_id = tokenPk-1;
+            id = tokenPk-1;
+        });
     };
 
-
-    // Internal
-
-    private func _ownerOf(tokenId : T.TokenId) : ?Principal {
-        return owners.get(tokenId);
-    };
-
-    private func _tokenURI(tokenId : T.TokenId) : ?Text {
-        return tokenURIs.get(tokenId);
-    };
-
-    private func _isApprovedForAll(owner : Principal, opperator : Principal) : Bool {
-        switch (operatorApprovals.get(owner)) {
-            case(?whiteList) {
-                for (allow in whiteList.vals()) {
-                    if (allow == opperator) {
-                        return true;
-                    };
-                };
+    // burnDip721
+    // Burn an NFT identified by token_id. Implementations are encouraged to only allow burning by the owner of the token_id. 
+    // Returns ApiError.Unauthorized, if the caller doesn't have the permission to burn the NFT. 
+    // Returns ApiError.InvalidTokenId, if the provided token_id doesn't exist.
+    public shared({caller}) func burn(token_id : T.TokenId) : async T.TxReceipt {
+        switch(_getOwner(token_id)) {
+            case(#Err(error)) return #Err(error);
+            case(#Ok(owner)) {
+                if (owner != caller) return #Err(#Unauthorized);
+                tokenURIs.delete(token_id);
+                owners.delete(token_id);
+                tokenMetadata.delete(token_id);
+                balances.put(owner, _getBalance(owner)-1);
+                return #Ok(token_id);
             };
-            case null {return false;};
         };
-        return false;
-    };
-
-    private func _approve(to : Principal, tokenId : Nat) : () {
-        tokenApprovals.put(tokenId, to);
-    };
-
-    private func _removeApprove(tokenId : Nat) : () {
-        let _ = tokenApprovals.remove(tokenId);
-    };
-
-    private func _exists(tokenId : Nat) : Bool {
-        return Option.isSome(owners.get(tokenId));
-    };
-
-    private func _getApproved(tokenId : Nat) : ?Principal {
-        assert _exists(tokenId) == true;
-        switch(tokenApprovals.get(tokenId)) {
-            case (?v) { return ?v };
-            case null {
-                return null;
-            };
-        }
-    };
-
-    private func _hasApprovedAndSame(tokenId : Nat, spender : Principal) : Bool {
-        switch(_getApproved(tokenId)) {
-            case (?v) {
-                return v == spender;
-            };
-            case null { return false}
-        }
-    };
-
-    private func _isApprovedOrOwner(spender : Principal, tokenId : Nat) : Bool {
-        assert _exists(tokenId);
-        let owner = Option.unwrap(_ownerOf(tokenId));
-        return spender == owner or _hasApprovedAndSame(tokenId, spender) or _isApprovedForAll(owner, spender);
-    };
-
-    private func _transfer(from : Principal, to : Principal, tokenId : Nat) : () {
-        assert _exists(tokenId);
-        assert Option.unwrap(_ownerOf(tokenId)) == from;
-
-        // Bug in HashMap https://github.com/dfinity/motoko-base/pull/253/files
-        // this will throw unless you patch your file
-        _removeApprove(tokenId);
-
-        _decrementBalance(from);
-        _incrementBalance(to);
-        owners.put(tokenId, to);
-    };
-
-    private func _incrementBalance(address : Principal) {
-        switch (balances.get(address)) {
-            case (?v) {
-                balances.put(address, v + 1);
-            };
-            case null {
-                balances.put(address, 1);
-            }
-        }
-    };
-
-    private func _decrementBalance(address : Principal) {
-        switch (balances.get(address)) {
-            case (?v) {
-                balances.put(address, v - 1);
-            };
-            case null {
-                balances.put(address, 0);
-            }
-        }
-    };
-
-    private func _mint(to : Principal, tokenId : Nat, uri : Text) : () {
-        assert not _exists(tokenId);
-
-        _incrementBalance(to);
-        owners.put(tokenId, to);
-        tokenURIs.put(tokenId,uri)
-    };
-
-    private func _burn(tokenId : Nat) {
-        let owner = Option.unwrap(_ownerOf(tokenId));
-
-        _removeApprove(tokenId);
-        _decrementBalance(owner);
-
-        ignore owners.remove(tokenId);
-    };
-
-    system func preupgrade() {
-        tokenURIEntries := Iter.toArray(tokenURIs.entries());
-        ownersEntries := Iter.toArray(owners.entries());
-        balancesEntries := Iter.toArray(balances.entries());
-        tokenApprovalsEntries := Iter.toArray(tokenApprovals.entries());
-        operatorApprovalsEntries := Iter.toArray(operatorApprovals.entries());
-        
-    };
-
-    system func postupgrade() {
-        tokenURIEntries := [];
-        ownersEntries := [];
-        balancesEntries := [];
-        tokenApprovalsEntries := [];
-        operatorApprovalsEntries := [];
     };
 };
