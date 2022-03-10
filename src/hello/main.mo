@@ -1,4 +1,6 @@
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
+import Cycles "mo:base/ExperimentalCycles";
 import Error "mo:base/Error";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
@@ -6,13 +8,16 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
 
 import T "hello_types";
 
-actor {
+shared ({ caller = creator }) actor class HelloNft() = {
     let _name = "hello";
     let _symbol = "$";
     let _zeroAddress = Principal.fromText("");
+    private stable var minter : Principal = creator;
     private stable var tokenPk : Nat = 0;
 
     private stable var tokenURIEntries : [(T.TokenId, Text)] = [];
@@ -25,7 +30,40 @@ actor {
     private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 0, Principal.equal, Principal.hash);
     private let tokenMetadata : HashMap.HashMap<T.TokenId, T.MetadataDesc> = HashMap.fromIter<T.TokenId, T.MetadataDesc>(tokenMetadataEntries.vals(), 0, Nat.equal, Hash.hash);
 
+    // preserve state on upgrade
+    system func preupgrade() {
+        tokenURIEntries := Iter.toArray<(T.TokenId, Text)>(tokenURIs.entries());
+        ownersEntries := Iter.toArray<(T.TokenId, Principal)>(owners.entries());
+        balancesEntries := Iter.toArray<(Principal, Nat)>(balances.entries());
+        tokenMetadataEntries := Iter.toArray<(T.TokenId, T.MetadataDesc)>(tokenMetadata.entries());
+    };
 
+    system func postupgrade() {
+        tokenURIEntries := [];
+        ownersEntries := [];
+        balancesEntries := [];
+        tokenMetadataEntries := [];
+    };
+
+    // cycles management
+    public func acceptCycles() : () {
+        let available = Cycles.available();
+        let accepted = Cycles.accept(available);
+        assert(available == accepted);
+    };
+
+    public query func balance() : async Nat {
+        Cycles.balance();
+    };
+
+    // manage minting power
+    public shared({ caller }) func setMinter(new : Principal) : async Result.Result<(), T.ApiError> {
+        if (caller != minter) return #err(#Unauthorized);
+        minter := new;
+        #ok();
+    };
+
+    // helper fxs
     func _getBalance(user: Principal) : Nat {
         switch(balances.get(user)) {
             case null 0;
@@ -43,6 +81,8 @@ actor {
             };
         };
     };
+
+    // dip721 general, mint, and burn interfaces
 
     // logoDip721
     // Returns the logo of the NFT contract
@@ -168,10 +208,11 @@ actor {
     // Mint an NFT for principal to. The parameter blobContent is non zero, if the NFT contract embeds the NFTs in the smart contract. 
     // Implementations are encouraged to only allow minting by the owner of the smart contract. 
     // Returns ApiError.Unauthorized, if the caller doesn't have the permission to mint the NFT.
-    public shared({caller}) func mint(to: Principal, metadata : T.MetadataDesc, blobContent: Blob) : async T.MintReceipt {
-        tokenURIs.put(tokenPk, "");
+    public shared({caller}) func mint(to: Principal, metadataDesc : T.MetadataDesc, tokenURI: Text) : async T.MintReceipt {
+        if (caller != minter) return #Err(#Unauthorized);
+        tokenURIs.put(tokenPk, tokenURI);
         owners.put(tokenPk, to);
-        tokenMetadata.put(tokenPk, metadata);
+        tokenMetadata.put(tokenPk, metadataDesc);
         balances.put(to, _getBalance(to)+1);
         tokenPk += 1;
         #Ok({
