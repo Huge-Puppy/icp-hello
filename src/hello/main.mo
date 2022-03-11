@@ -1,34 +1,43 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Cycles "mo:base/ExperimentalCycles";
+import Debug "mo:base/Debug";
 import Error "mo:base/Error";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
+import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
+import Random "mo:base/Random";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
+import Time "mo:base/Time";
 
+import SVG "hello_svg";
 import T "hello_types";
 
-shared ({ caller = creator }) actor class HelloNft() = {
+actor  {
     let _name = "hello";
     let _symbol = "$";
-    let _zeroAddress = Principal.fromText("");
-    private stable var minter : Principal = creator;
+    let _zeroAddress = Principal.fromText("g4324-uarlh-m5lfy-e7qcu-fa74p-rxvju-rp4u3-3mfqt-rvm23-zdzjd-7ae");
+    private stable var minter : Principal = Principal.fromText("g4324-uarlh-m5lfy-e7qcu-fa74p-rxvju-rp4u3-3mfqt-rvm23-zdzjd-7ae");
+    private stable var creator : Principal = Principal.fromText("g4324-uarlh-m5lfy-e7qcu-fa74p-rxvju-rp4u3-3mfqt-rvm23-zdzjd-7ae");
+    var randomGen : Random.Finite = Random.Finite(Principal.toBlob(creator));
     private stable var tokenPk : Nat = 0;
 
     private stable var tokenURIEntries : [(T.TokenId, Text)] = [];
     private stable var ownersEntries : [(T.TokenId, Principal)] = [];
     private stable var balancesEntries : [(Principal, Nat)] = [];
     private stable var tokenMetadataEntries : [(T.TokenId, T.MetadataDesc)] = [];
+    private stable var tokenIdsEntries : [(Text, T.TokenId)] = [];
 
     private let tokenURIs : HashMap.HashMap<T.TokenId, Text> = HashMap.fromIter<T.TokenId, Text>(tokenURIEntries.vals(), 0, Nat.equal, Hash.hash);
     private let owners : HashMap.HashMap<T.TokenId, Principal> = HashMap.fromIter<T.TokenId, Principal>(ownersEntries.vals(), 0, Nat.equal, Hash.hash);
     private let balances : HashMap.HashMap<Principal, Nat> = HashMap.fromIter<Principal, Nat>(balancesEntries.vals(), 0, Principal.equal, Principal.hash);
     private let tokenMetadata : HashMap.HashMap<T.TokenId, T.MetadataDesc> = HashMap.fromIter<T.TokenId, T.MetadataDesc>(tokenMetadataEntries.vals(), 0, Nat.equal, Hash.hash);
+    private let tokenIds : HashMap.HashMap<Text, T.TokenId> = HashMap.fromIter<Text, T.TokenId>(tokenIdsEntries.vals(), 0, Text.equal, Text.hash);
 
     // preserve state on upgrade
     system func preupgrade() {
@@ -36,6 +45,7 @@ shared ({ caller = creator }) actor class HelloNft() = {
         ownersEntries := Iter.toArray<(T.TokenId, Principal)>(owners.entries());
         balancesEntries := Iter.toArray<(Principal, Nat)>(balances.entries());
         tokenMetadataEntries := Iter.toArray<(T.TokenId, T.MetadataDesc)>(tokenMetadata.entries());
+        tokenIdsEntries := Iter.toArray<(Text, T.TokenId)>(tokenIds.entries());
     };
 
     system func postupgrade() {
@@ -43,6 +53,7 @@ shared ({ caller = creator }) actor class HelloNft() = {
         ownersEntries := [];
         balancesEntries := [];
         tokenMetadataEntries := [];
+        tokenIdsEntries := [];
     };
 
     // cycles management
@@ -58,12 +69,156 @@ shared ({ caller = creator }) actor class HelloNft() = {
 
     // manage minting power
     public shared({ caller }) func setMinter(new : Principal) : async Result.Result<(), T.ApiError> {
-        if (caller != minter) return #err(#Unauthorized);
+        if (caller != minter and caller != creator) return #err(#Unauthorized);
         minter := new;
         #ok();
     };
 
-    // helper fxs
+    public shared({ caller }) func publicMint() : async T.MintReceipt {
+        if (caller == Principal.fromText("2vxsx-fae")) return #Err(#Unauthorized);
+        // TODO: transfer bootcamp faucet tokens
+
+        let randomIndices : [Nat] = Array.tabulate<Nat>(5, func(i: Nat) {
+            switch(randomGen.coin()) {
+                case (?true) return 1;
+                case (?false) return 0;
+                case null {
+                    randomGen := Random.Finite(Principal.toBlob(caller));
+                    return 0;
+                }
+            };
+        });
+        let svg : Text = SVG.createSvg(randomIndices);
+        let tokenURI : Text = Principal.toText(minter) # ".ic0.app/?tokenIndex=" # Nat.toText(tokenPk);
+        let metadata : T.MetadataDesc = [{
+            purpose = #Rendered;
+            key_val_data = [
+                ("contentHash", #BlobContent(Text.encodeUtf8(tokenURI))),
+                ("contentType", #TextContent("image/svg+xml")),
+                ("locationType", #Nat8Content(3)),
+                ("background", #NatContent(randomIndices[0])),
+                ("body", #NatContent(randomIndices[1])),
+                ("eyes", #NatContent(randomIndices[2])),
+                ("mouth", #NatContent(randomIndices[3])),
+                ("hands", #NatContent(randomIndices[4])),
+            ];
+            data = tokenURI;
+        }];
+        return await mint(caller, metadata, tokenURI);
+    };
+
+    // allow getting images through http
+    public query func http_request(request : T.HttpRequest) : async T.HttpResponse {
+        let errorReturnVal : T.HttpResponse = {
+            status_code = 404;
+            headers = [("content-type", "text/html"), ("cache-control", "public, max-age=15552000")];
+            body = "error";
+        };
+        switch(_getParam(request.url, "tokenIndex")) {
+            case (?tokenid) {
+                let tokenIndex : ?T.TokenId = tokenIds.get(tokenid);
+                switch(tokenIndex) {
+                    case(?val) {
+                        switch(tokenMetadata.get(val)) {
+                            case(?data) {
+                                switch(data.size() > 0) {
+                                    case true {
+                                        let props : [Nat] = _getData(data[0].key_val_data);
+                                        return {
+                                            status_code = 200;
+                                            headers = [("content-type", "image/svg+xml"), ("cache-control", "public, max-age=15552000")];
+                                            body = Text.encodeUtf8(
+                                                SVG.createSvg(props)
+                                            );
+                                        };
+                                    };
+                                    case false return errorReturnVal
+                                };
+                            };
+                            case _ return errorReturnVal;
+                        }
+                    };
+                    case _ return errorReturnVal;
+                }
+            };
+            case _ return errorReturnVal;
+        };
+    };
+
+    // helper fxs 
+
+func _extractNat(val: T.MetadataVal) : Nat {
+    switch(val) {
+        case(#NatContent(nat)) return nat;
+        case(_) return 0;
+    };
+};
+
+func _append<T>(array : [T], val: T) : [T] {
+    let new = Array.tabulate<T>(array.size()+1, func(i) {
+        if (i < array.size()) {
+            array[i];
+        } else {
+            val;
+        };
+    });
+    new;
+};
+    func _getData(keyValPairs : [T.MetadataKeyVal]) : [Nat] {
+        var i : Nat = 0;
+        var atts : [Nat] = [];
+        for (tuple in keyValPairs.vals()) {
+            switch(tuple.0) {
+                case("background") if (i == 0) {
+                    atts := _append(atts, _extractNat(tuple.1));
+                    i+=1;
+                };
+                case("body") if (i == 1) {
+                    atts := _append(atts, _extractNat(tuple.1));
+                    i+=1;
+                };
+                case("eyes") if (i == 2) {
+                    atts := _append(atts, _extractNat(tuple.1));
+                    i+=1;
+                };
+                case("mouth") if (i == 3) {
+                    atts := _append(atts, _extractNat(tuple.1));
+                    i+=1;
+                };
+                case("hands") if (i == 4) {
+                    atts := _append(atts, _extractNat(tuple.1));
+                    i+=1;
+                };
+                case(_) {};
+            };
+        };
+        atts;
+    };
+
+    func _getParam(url : Text, param : Text) : ?Text {
+          var _s : Text = url;
+      Iter.iterate<Text>(Text.split(_s, #text("/")), func(x, _i) {
+            _s := x;
+      });
+      Iter.iterate<Text>(Text.split(_s, #text("?")), func(x, _i) {
+            if (_i == 1) _s := x;
+      });
+      var t : ?Text = null;
+      var found : Bool = false;
+      Iter.iterate<Text>(Text.split(_s, #text("&")), func(x, _i) {
+            if (found == false) {
+              Iter.iterate<Text>(Text.split(x, #text("=")), func(y, _ii) {
+                if (_ii == 0) {
+                  if (Text.equal(y, param)) found := true;
+            } else if (found == true) {
+                        t := ?y
+            };
+          });
+        };
+      });
+      return t;
+    };
+  
     func _getBalance(user: Principal) : Nat {
         switch(balances.get(user)) {
             case null 0;
@@ -105,7 +260,7 @@ shared ({ caller = creator }) actor class HelloNft() = {
     // totalSupplyDip721
     // Returns the total current supply of NFT tokens. NFTs that are minted and later burned explictely or sent to the zero address should also count towards totalSupply.
     public query func totalSupply() : async T.TokenId {
-        tokenPk + 1;
+        tokenPk;
     };
 
     // balanceOfDip721
@@ -210,6 +365,7 @@ shared ({ caller = creator }) actor class HelloNft() = {
     // Returns ApiError.Unauthorized, if the caller doesn't have the permission to mint the NFT.
     public shared({caller}) func mint(to: Principal, metadataDesc : T.MetadataDesc, tokenURI: Text) : async T.MintReceipt {
         if (caller != minter) return #Err(#Unauthorized);
+        tokenIds.put(Nat.toText(tokenPk), tokenPk);
         tokenURIs.put(tokenPk, tokenURI);
         owners.put(tokenPk, to);
         tokenMetadata.put(tokenPk, metadataDesc);

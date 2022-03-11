@@ -54,7 +54,7 @@ module {
     {
       purpose: MetadataPurpose;
       key_val_data: [MetadataKeyVal];
-      data: Blob;
+      data: Text;
     };
 
     public type MetadataPurpose =
@@ -83,5 +83,17 @@ module {
              token_id: TokenId; // minted token id
              id: Nat // transaction id
           };
+    };
+    public type HttpRequest = {
+      method : Text;
+      url : Text;
+      headers : [HeaderField];
+      body : Blob;
+    };
+    public type HeaderField = (Text, Text);
+    public type HttpResponse = {
+      status_code: Nat16;
+      headers: [HeaderField];
+      body: Blob;
     };
 }

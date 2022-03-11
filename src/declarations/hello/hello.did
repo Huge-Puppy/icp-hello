@@ -1,3 +1,119 @@
+type TxReceipt = 
+ variant {
+   Err: ApiError;
+   Ok: nat;
+ };
+type TokenId = nat;
+type Result = 
+ variant {
+   err: ApiError;
+   ok;
+ };
+type OwnerResult = 
+ variant {
+   Err: ApiError;
+   Ok: principal;
+ };
+type MintReceipt = 
+ variant {
+   Err: variant {Unauthorized;};
+   Ok: record {
+         id: nat;
+         token_id: TokenId;
+       };
+ };
+type MetadataVal = 
+ variant {
+   BlobContent: blob;
+   Nat16Content: nat16;
+   Nat32Content: nat32;
+   Nat64Content: nat64;
+   Nat8Content: nat8;
+   NatContent: nat;
+   TextContent: text;
+ };
+type MetadataResult = 
+ variant {
+   Err: ApiError;
+   Ok: MetadataDesc;
+ };
+type MetadataPurpose = 
+ variant {
+   Preview;
+   Rendered;
+ };
+type MetadataPart = 
+ record {
+   data: text;
+   key_val_data: vec MetadataKeyVal;
+   purpose: MetadataPurpose;
+ };
+type MetadataKeyVal = 
+ record {
+   text;
+   MetadataVal;
+ };
+type MetadataDesc = vec MetadataPart;
+type LogoResult = 
+ record {
+   data: text;
+   logo_type: text;
+ };
+type InterfaceId = 
+ variant {
+   Approval;
+   Burn;
+   Mint;
+   TransactionHistory;
+   TransferNotification;
+ };
+type HttpResponse = 
+ record {
+   body: blob;
+   headers: vec HeaderField;
+   status_code: nat16;
+ };
+type HttpRequest = 
+ record {
+   body: blob;
+   headers: vec HeaderField;
+   method: text;
+   url: text;
+ };
+type HeaderField = 
+ record {
+   text;
+   text;
+ };
+type ExtendedMetadataResult = 
+ record {
+   metadata_desc: MetadataDesc;
+   token_id: TokenId;
+ };
+type ApiError = 
+ variant {
+   InvalidTokenId;
+   Other;
+   Unauthorized;
+   ZeroAddress;
+ };
 service : {
+  acceptCycles: () -> () oneway;
+  balance: () -> (nat) query;
   balanceOf: (principal) -> (nat) query;
+  burn: (TokenId) -> (TxReceipt);
+  getMetadata: (TokenId) -> (MetadataResult) query;
+  getMetadataForUser: (principal) -> (vec ExtendedMetadataResult);
+  http_request: (HttpRequest) -> (HttpResponse) query;
+  logo: () -> (LogoResult) query;
+  mint: (principal, MetadataDesc, text) -> (MintReceipt);
+  name: () -> (text) query;
+  ownerOf: (TokenId) -> (OwnerResult) query;
+  publicMint: () -> (MintReceipt);
+  safeTransferFrom: (principal, principal, TokenId) -> (TxReceipt);
+  setMinter: (principal) -> (Result);
+  supportedInterfaces: () -> (vec InterfaceId) query;
+  symbol: () -> (text) query;
+  totalSupply: () -> (TokenId) query;
+  transferFrom: (principal, principal, TokenId) -> (TxReceipt);
 }

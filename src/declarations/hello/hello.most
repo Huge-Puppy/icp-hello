@@ -1,9 +1,12 @@
+type MetadataDesc = [MetadataPart];
 type TokenId = Nat;
 actor {
   stable var balancesEntries : [(Principal, Nat)];
-  stable var operatorApprovalsEntries : [(Principal, [Principal])];
+  stable var creator : Principal;
+  stable var minter : Principal;
   stable var ownersEntries : [(TokenId, Principal)];
-  stable var tokenApprovalsEntries : [(TokenId, Principal)];
+  stable var tokenIdsEntries : [(Text, TokenId)];
+  stable var tokenMetadataEntries : [(TokenId, MetadataDesc)];
   stable var tokenPk : Nat;
   stable var tokenURIEntries : [(TokenId, Text)]
 };
