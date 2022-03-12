@@ -61,6 +61,7 @@ export interface _SERVICE {
   'getMetadataForUser' : (arg_0: Principal) => Promise<
       Array<ExtendedMetadataResult>
     >,
+  'giveGold' : (arg_0: bigint) => Promise<undefined>,
   'http_request' : (arg_0: HttpRequest) => Promise<HttpResponse>,
   'logo' : () => Promise<LogoResult>,
   'mint' : (arg_0: Principal, arg_1: MetadataDesc, arg_2: string) => Promise<

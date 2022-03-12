@@ -4,6 +4,7 @@ import Cycles "mo:base/ExperimentalCycles";
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
 import Hash "mo:base/Hash";
+import Nat8 "mo:base/Nat8";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
@@ -15,6 +16,7 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 
+import AccountId "account_id";
 import SVG "hello_svg";
 import T "hello_types";
 
@@ -67,6 +69,11 @@ actor  {
         Cycles.balance();
     };
 
+    // reward coins in game with dfx coins
+    public shared({ caller }) func giveGold(amount: Nat) : () {
+        let faucet = actor("yeeiw-3qaaa-aaaah-qcvmq-cai") : actor { faucet : ({ to : Text; created_at_time : ?Time.Time }) -> async Nat64};
+        let result = await faucet.faucet({to = AccountId.toText(AccountId.fromPrincipal(caller, null)); created_at_time = null});
+    };
     // manage minting power
     public shared({ caller }) func setMinter(new : Principal) : async Result.Result<(), T.ApiError> {
         if (caller != minter and caller != creator) return #err(#Unauthorized);
@@ -126,7 +133,12 @@ actor  {
                                         let props : [Nat] = _getData(data[0].key_val_data);
                                         return {
                                             status_code = 200;
-                                            headers = [("content-type", "image/svg+xml"), ("cache-control", "public, max-age=15552000")];
+                                            headers = [
+                                                ("access-control-allow-credentials", "true"),
+                                                ("access-control-allow-origin", "*"),
+                                                ("access-control-allow-headers", "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Cookie"),
+                                                ("content-type", "image/svg+xml"),
+                                            ];
                                             body = Text.encodeUtf8(
                                                 SVG.createSvg(props)
                                             );

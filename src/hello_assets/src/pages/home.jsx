@@ -7,18 +7,26 @@ const Home = (props) => {
     <div id="body">
       <h2 className="title">Welcome</h2>
       {props.loggedIn ? (
-        <>
-          <button className="myButton specialButton">
-            Mint NFT - 100 tokens
-          </button>
-          <br></br>
-          <button
-            className="myButton specialButton"
-            onClick={() => props.setRoute("game")}
-          >
-            Play Game
-          </button>
-        </>
+        !props.loading ? (
+          <>
+            <button className="myButton specialButton" onClick={props.mint}>
+              Mint NFT - 100 tokens
+            </button>
+            <br></br>
+            {props.hasNft ? (
+              <button
+                className="myButton specialButton"
+                onClick={() => props.setRoute("game")}
+              >
+                Play Game
+              </button>
+            ) : (
+              <></>
+            )}
+          </>
+        ) : (
+          <p className="whiteText">loading...</p>
+        )
       ) : (
         <PlugConnect
           whitelist={props.whitelist}

@@ -69,6 +69,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ExtendedMetadataResult)],
         [],
       ),
+    'giveGold' : IDL.Func([IDL.Nat], [], ['oneway']),
     'http_request' : IDL.Func([HttpRequest], [HttpResponse], ['query']),
     'logo' : IDL.Func([], [LogoResult], ['query']),
     'mint' : IDL.Func(

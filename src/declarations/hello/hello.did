@@ -104,6 +104,7 @@ service : {
   burn: (TokenId) -> (TxReceipt);
   getMetadata: (TokenId) -> (MetadataResult) query;
   getMetadataForUser: (principal) -> (vec ExtendedMetadataResult);
+  giveGold: (nat) -> () oneway;
   http_request: (HttpRequest) -> (HttpResponse) query;
   logo: () -> (LogoResult) query;
   mint: (principal, MetadataDesc, text) -> (MintReceipt);

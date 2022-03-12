@@ -7,17 +7,50 @@ import Game from "./pages/game";
 
 import "../assets/main.css";
 
-import { hello } from "../../declarations/hello";
+import Unity, { UnityContext } from "react-unity-webgl";
+import { hello, idlFactory } from "../../declarations/hello";
+import faucetIdlFactory from "./types";
+import { Principal } from "@dfinity/principal";
+import principalToAccountIdentifier from "./utils";
 
 const MyHello = () => {
   const [loggedIn, setLoggedIn] = React.useState(false);
+  const [hasNft, setHasNft] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
   const [principal, setPrincipal] = React.useState("");
   const [expandHeader, setExpandHeader] = React.useState(false);
   const [route, setRoute] = React.useState("home");
+  const [svgData, setSvgData] = React.useState([]);
 
-  const whitelist = ["rv7xl-jaaaa-aaaao-aaa2q-cai"];
+  const faucetAddress = "yeeiw-3qaaa-aaaah-qcvmq-cai";
+  const helloAddress = "rv7xl-jaaaa-aaaao-aaa2q-cai";
+  const whitelist = [helloAddress, faucetAddress];
   const host = "https://mainnet.dfinity.network";
 
+  var faucetActor;
+  var helloActor;
+
+  const loadNfts = async (manual) => {
+    if (principal != "" || manual) {
+      let balance = await hello.balanceOf(
+        Principal.fromText(manual ?? principal)
+      );
+      if (Number(balance) > 0) {
+        setHasNft(true);
+      }
+    }
+  };
+
+  const loadActors = async () => {
+    faucetActor = await window.ic.plug.createActor({
+      canisterId: faucetAddress,
+      interfaceFactory: faucetIdlFactory,
+    });
+    helloActor = await window.ic.plug.createActor({
+      canisterId: helloAddress,
+      interfaceFactory: idlFactory,
+    });
+  };
   const verifyConnectionAndAgent = async () => {
     const connected = await window.ic.plug.isConnected();
     setLoggedIn(connected);
@@ -25,23 +58,77 @@ const MyHello = () => {
       window.ic.plug.createAgent({ whitelist, host });
     }
     if (connected) {
-      setPrincipal((await window.ic.plug.getPrincipal()).toText());
+      let temp = await window.ic.plug.getPrincipal();
+      setPrincipal(temp.toText());
+      await loadNfts(temp.toText());
+      await loadActors();
     }
   };
 
+  const unityContext = new UnityContext({
+    loaderUrl: "../../icp-webgl/Build/Desktop.loader.js",
+    dataUrl: "../../icp-webgl/Build/Desktop.data",
+    frameworkUrl: "../../icp-webgl/Build/Desktop.framework.js",
+    codeUrl: "../../icp-webgl/Build/Desktop.wasm",
+  });
+
   const mint = async () => {
-    hello.mint();
+    // create actors
+    setLoading(true);
+    if (!faucetActor || !helloActor) {
+      await loadActors();
+    }
+    await faucetActor.send_dfx({
+      to: principalToAccountIdentifier(helloAddress, 0),
+      fee: { e8s: 10000 },
+      memo: 0,
+      amount: { e8s: 10000000000 },
+      from_subaccount: [],
+      created_at_time: [],
+    });
+    await helloActor.publicMint();
+    loadNfts();
+    setLoading(false);
   };
 
   const logout = () => {
-    console.log(loggedIn);
     window.ic.plug.disconnect();
+    setRoute("home");
     setLoggedIn(false);
   };
 
   React.useEffect(async () => {
     verifyConnectionAndAgent();
+    unityContext.on("GiveGold", async function (goldAmount) {
+      if (!helloActor) {
+        await loadActors();
+      }
+      await helloActor.giveGold(BigInt(goldAmount));
+    });
+    unityContext.on("GameOver", async function () {
+      setRoute("home");
+    });
   }, []);
+
+  const getUserMetadata = async () => {
+    const metadata = await hello.getMetadataForUser(
+      Principal.fromText(principal)
+    );
+    const returnVal = metadata.map(
+      (val, i, __) =>
+        `https://rv7xl-jaaaa-aaaao-aaa2q-cai.raw.ic0.app/?tokenIndex=${val["token_id"]}`
+    );
+    return returnVal;
+  };
+
+  const getAllMetadata = async () => {
+    const supply = await hello.totalSupply();
+    const returnVal = [...Array(Number(supply)).keys()].map(
+      (_, i, __) =>
+        `https://rv7xl-jaaaa-aaaao-aaa2q-cai.raw.ic0.app/?tokenIndex=${i}`
+    );
+    return returnVal;
+  };
 
   return (
     <>
@@ -53,7 +140,13 @@ const MyHello = () => {
         </div>
         <div>
           <div className="rightHeader">
-            <button className="myButton" onClick={() => setRoute("allnfts")}>
+            <button
+              className="myButton"
+              onClick={async () => {
+                setRoute("allnfts");
+                setSvgData(await getAllMetadata());
+              }}
+            >
               view NFTs
             </button>
             {loggedIn ? (
@@ -62,7 +155,10 @@ const MyHello = () => {
                   <>
                     <button
                       className="myButton"
-                      onClick={() => setRoute("allnfts")}
+                      onClick={async () => {
+                        setRoute("mynfts");
+                        setSvgData(await getUserMetadata());
+                      }}
                     >
                       my NFTs
                     </button>
@@ -105,13 +201,16 @@ const MyHello = () => {
           loggedIn={loggedIn}
           setLoggedIn={setLoggedIn}
           whitelist={whitelist}
+          mint={mint}
+          loading={loading}
+          hasNft={hasNft}
         />
       ) : route == "allnfts" ? (
-        <ViewNfts metadata={[]} />
+        <ViewNfts data={svgData} />
       ) : route == "mynfts" ? (
-        <ViewNfts metadata={[]} />
+        <ViewNfts data={svgData} />
       ) : route == "game" ? (
-        <Game />
+        <Game unityContext={unityContext} />
       ) : (
         <></>
       )}
