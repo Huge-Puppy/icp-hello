@@ -1,26 +1,26 @@
 # hello
 
-Welcome to your new hello project and to the internet computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+These are the obsidian tears game canisters. One canister (hello) is the game backend. The other canister (hello_assets) is the reactjs frontend for interacting with the game. 
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+We load the game using unity-webgl after authenticating with stoic or plug wallet. Right now only connecting with plug is shown, but we'd like to add a button for stoic as well. (using whatever npm library they have, most likely)
 
-To learn more before you start working with hello, see the following documentation available online:
+## Running the project
 
-- [Quick Start](https://sdk.dfinity.org/docs/quickstart/quickstart-intro.html)
-- [SDK Developer Tools](https://sdk.dfinity.org/docs/developers-guide/sdk-guide.html)
-- [Motoko Programming Language Guide](https://sdk.dfinity.org/docs/language-guide/motoko.html)
-- [Motoko Language Quick Reference](https://sdk.dfinity.org/docs/language-guide/language-manual.html)
-- [JavaScript API Reference](https://erxue-5aaaa-aaaab-qaagq-cai.raw.ic0.app)
+### Only Frontend
 
-If you want to start working on your project right away, you might want to try the following commands:
+You can run just the react frontend by going to the project directory and running:
+
+```bash
+npm start
+```
+
+### Frontend and Backend
+
+Navigate to the project directory:
 
 ```bash
 cd hello/
-dfx help
-dfx config --help
 ```
-
-## Running the project locally
 
 If you want to test your project locally, you can use the following commands:
 
