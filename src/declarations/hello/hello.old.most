@@ -1,19 +1,4 @@
-// Version: 1.0.0
 type MetadataDesc = [MetadataPart];
-type MetadataKeyVal = (Text, MetadataVal);
-type MetadataPart =
-  {data : Text; key_val_data : [MetadataKeyVal]; purpose : MetadataPurpose};
-type MetadataPurpose = {#Preview; #Rendered};
-type MetadataVal =
-  {
-    #BlobContent : Blob;
-    #Nat16Content : Nat16;
-    #Nat32Content : Nat32;
-    #Nat64Content : Nat64;
-    #Nat8Content : Nat8;
-    #NatContent : Nat;
-    #TextContent : Text
-  };
 type TokenId = Nat;
 actor {
   stable var balancesEntries : [(Principal, Nat)];

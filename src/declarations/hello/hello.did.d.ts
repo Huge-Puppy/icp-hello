@@ -1,4 +1,6 @@
 import type { Principal } from '@dfinity/principal';
+import type { ActorMethod } from '@dfinity/agent';
+
 export type ApiError = { 'ZeroAddress' : null } |
   { 'InvalidTokenId' : null } |
   { 'Unauthorized' : null } |
@@ -53,35 +55,26 @@ export type TokenId = bigint;
 export type TxReceipt = { 'Ok' : bigint } |
   { 'Err' : ApiError };
 export interface _SERVICE {
-  'acceptCycles' : () => Promise<undefined>,
-  'balance' : () => Promise<bigint>,
-  'balanceOf' : (arg_0: Principal) => Promise<bigint>,
-  'burn' : (arg_0: TokenId) => Promise<TxReceipt>,
-  'getMetadata' : (arg_0: TokenId) => Promise<MetadataResult>,
-  'getMetadataForUser' : (arg_0: Principal) => Promise<
-      Array<ExtendedMetadataResult>
-    >,
-  'giveGold' : (arg_0: bigint) => Promise<undefined>,
-  'http_request' : (arg_0: HttpRequest) => Promise<HttpResponse>,
-  'logo' : () => Promise<LogoResult>,
-  'mint' : (arg_0: Principal, arg_1: MetadataDesc, arg_2: string) => Promise<
-      MintReceipt
-    >,
-  'name' : () => Promise<string>,
-  'ownerOf' : (arg_0: TokenId) => Promise<OwnerResult>,
-  'publicMint' : () => Promise<MintReceipt>,
-  'safeTransferFrom' : (
-      arg_0: Principal,
-      arg_1: Principal,
-      arg_2: TokenId,
-    ) => Promise<TxReceipt>,
-  'setMinter' : (arg_0: Principal) => Promise<Result>,
-  'supportedInterfaces' : () => Promise<Array<InterfaceId>>,
-  'symbol' : () => Promise<string>,
-  'totalSupply' : () => Promise<TokenId>,
-  'transferFrom' : (
-      arg_0: Principal,
-      arg_1: Principal,
-      arg_2: TokenId,
-    ) => Promise<TxReceipt>,
+  'acceptCycles' : ActorMethod<[], undefined>,
+  'balance' : ActorMethod<[], bigint>,
+  'balanceOf' : ActorMethod<[Principal], bigint>,
+  'burn' : ActorMethod<[TokenId], TxReceipt>,
+  'getMetadata' : ActorMethod<[TokenId], MetadataResult>,
+  'getMetadataForUser' : ActorMethod<
+    [Principal],
+    Array<ExtendedMetadataResult>,
+  >,
+  'giveGold' : ActorMethod<[bigint], undefined>,
+  'http_request' : ActorMethod<[HttpRequest], HttpResponse>,
+  'logo' : ActorMethod<[], LogoResult>,
+  'mint' : ActorMethod<[Principal, MetadataDesc, string], MintReceipt>,
+  'name' : ActorMethod<[], string>,
+  'ownerOf' : ActorMethod<[TokenId], OwnerResult>,
+  'publicMint' : ActorMethod<[], MintReceipt>,
+  'safeTransferFrom' : ActorMethod<[Principal, Principal, TokenId], TxReceipt>,
+  'setMinter' : ActorMethod<[Principal], Result>,
+  'supportedInterfaces' : ActorMethod<[], Array<InterfaceId>>,
+  'symbol' : ActorMethod<[], string>,
+  'totalSupply' : ActorMethod<[], TokenId>,
+  'transferFrom' : ActorMethod<[Principal, Principal, TokenId], TxReceipt>,
 }
