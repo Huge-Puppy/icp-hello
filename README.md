@@ -1,4 +1,4 @@
-# hello
+# obsidian tears
 
 These are the obsidian tears game canisters. One canister (hello) is the game backend. The other canister (hello_assets) is the reactjs frontend for interacting with the game. 
 
